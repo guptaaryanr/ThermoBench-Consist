@@ -1,0 +1,43 @@
+# ThermoBench-Consist Report
+
+**Adapter:** {{ adapter }}  
+**Fluid:** {{ fluid }}  
+**Grid:** {{ grid }}  
+**Date (UTC):** {{ datetime_utc }}
+
+## Composite Score
+**{{ "%.1f"|format(composite_score) }} / 100**
+
+## Checks
+
+### C1 — Monotonic density (∂ρ/∂p|_T > 0)
+- Supported: {{ checks.C1_monotonic.supported }}
+- Passed: {{ checks.C1_monotonic.passed }} (ratio={{ "%.2f"|format(checks.C1_monotonic.pass_ratio) }})
+- Details:
+{% for r in checks.C1_monotonic.details.per_T %}
+  - T={{ "%.1f"|format(r.T) }} K — fraction positive={{ "%.2f"|format(r.fraction_positive) }}, min derivative={{ "%.3e"|format(r.min_derivative) }}, passed={{ r.passed }}
+{% endfor %}
+
+### C2 — Compressibility sign (κ_T > 0)
+- Supported: {{ checks.C2_compressibility.supported }}
+- Passed: {{ checks.C2_compressibility.passed }} (ratio={{ "%.2f"|format(checks.C2_compressibility.pass_ratio) }})
+- Details:
+{% for r in checks.C2_compressibility.details.per_T %}
+  - T={{ "%.1f"|format(r.T) }} K — min κ_T={{ "%.3e"|format(r.min_kappa if r.min_kappa is not none else float("nan")) }}, passed={{ r.passed }}
+{% endfor %}
+
+### C3 — Clapeyron slope along VLE
+- Supported: {{ checks.C3_clapeyron.supported }}
+- Passed: {{ checks.C3_clapeyron.passed }} (ratio={{ "%.2f"|format(checks.C3_clapeyron.pass_ratio) }})
+- Details:
+{% for r in checks.C3_clapeyron.details.per_run %}
+  - T list: {{ r.T_list }} — median rel. error={{ "%.3f"|format(r.median_rel_error) }}, passed={{ r.passed }}
+{% endfor %}
+
+## Figures
+
+![Isotherm ρ vs p]({{ fig_isotherm }})
+
+{% if fig_clapeyron %}
+![Clapeyron errors]({{ fig_clapeyron }})
+{% endif %}

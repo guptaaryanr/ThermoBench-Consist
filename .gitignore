@@ -1,0 +1,33 @@
+# Python & build
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtualenvs
+.venv/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb.py
+*.nbconvert/
+
+# Reports / outputs
+out/
+reports/
+*.png
+*.html
+*.md
+*.json
+notes.txt
+
+# IDE
+.vscode/
+.idea/
+
+# Ruff cache
+.ruff_cache/

@@ -1,0 +1,192 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Sequence, Dict, Any
+import numpy as np
+
+from .api import SurrogateAdapter, FiniteDiff
+
+
+@dataclass
+class MonotonicResult:
+    name: str
+    fluid: str
+    T: float
+    p: list[float]
+    drho_dp: list[float]
+    fraction_positive: float
+    min_derivative: float
+    tol: float
+    supported: bool
+    passed: bool
+
+
+@dataclass
+class CompressibilityResult:
+    name: str
+    fluid: str
+    T: float
+    p: list[float]
+    kappa_T: list[float]
+    tol: float
+    supported: bool
+    passed: bool
+
+
+@dataclass
+class ClapeyronResult:
+    name: str
+    fluid: str
+    T_list: list[float]
+    rel_errors: list[float]
+    tol_rel: float
+    supported: bool
+    passed: bool
+    rhs_values: list[float]  # Δh/(T·Δv)
+    lhs_values: list[float]  # dP_sat/dT baseline
+
+
+def check_monotonic_rho_isotherm(
+    adapter: SurrogateAdapter, fluid: str, T: float, p_vals: Sequence[float], tol: float = 1e-6
+) -> MonotonicResult:
+    """C1: ∂ρ/∂p|_T > 0 along a single-phase isotherm.
+
+    We compute centered FD derivatives on the `p_vals` grid.
+
+    Returns a MonotonicResult with fraction of positive steps and min derivative.
+    """
+    if not adapter.capabilities().supports_rho:
+        return MonotonicResult(
+            name="C1_monotonic",
+            fluid=fluid,
+            T=T,
+            p=list(map(float, p_vals)),
+            drho_dp=[],
+            fraction_positive=0.0,
+            min_derivative=float("nan"),
+            tol=tol,
+            supported=False,
+            passed=False,
+        )
+
+    p_vals = np.asarray(p_vals, dtype=float)
+    # derivatives at midpoints between p[k] and p[k+1]
+    dr = []
+    for p1, p2 in zip(p_vals[:-1], p_vals[1:]):
+        pmid = 0.5 * (p1 + p2)
+        dp = p2 - p1
+        d = FiniteDiff.drho_dp_at_T(adapter, T, pmid, dp=dp)
+        dr.append(d)
+    dr = np.asarray(dr)
+    frac_pos = float(np.mean(dr > -tol)) if dr.size > 0 else 0.0
+    min_d = float(np.min(dr)) if dr.size > 0 else float("nan")
+    passed = bool(np.all(dr > -tol))
+    return MonotonicResult(
+        name="C1_monotonic",
+        fluid=fluid,
+        T=float(T),
+        p=list(map(float, p_vals)),
+        drho_dp=list(map(float, dr)),
+        fraction_positive=frac_pos,
+        min_derivative=min_d,
+        tol=tol,
+        supported=True,
+        passed=passed,
+    )
+
+
+def check_compressibility(
+    adapter: SurrogateAdapter, fluid: str, T: float, p_vals: Sequence[float], tol: float = 1e-6
+) -> CompressibilityResult:
+    """C2: κ_T = (1/ρ)(∂ρ/∂p)|_T > 0.
+
+    Derivative estimated via centered FD on isotherm samples.
+    """
+    if not adapter.capabilities().supports_rho:
+        return CompressibilityResult(
+            name="C2_compressibility",
+            fluid=fluid,
+            T=T,
+            p=list(map(float, p_vals)),
+            kappa_T=[],
+            tol=tol,
+            supported=False,
+            passed=False,
+        )
+
+    p_vals = np.asarray(p_vals, dtype=float)
+    kappas = []
+    for p1, p2 in zip(p_vals[:-1], p_vals[1:]):
+        pmid = 0.5 * (p1 + p2)
+        dp = p2 - p1
+        drdp = FiniteDiff.drho_dp_at_T(adapter, T, pmid, dp=dp)
+        rho_mid = float(adapter.rho(T, pmid))
+        kappa = drdp / max(rho_mid, 1e-30)
+        kappas.append(kappa)
+    kappas = np.asarray(kappas)
+    passed = bool(np.all(kappas > -tol))
+    return CompressibilityResult(
+        name="C2_compressibility",
+        fluid=fluid,
+        T=float(T),
+        p=list(map(float, p_vals)),
+        kappa_T=list(map(float, kappas)),
+        tol=tol,
+        supported=True,
+        passed=passed,
+    )
+
+
+def check_clapeyron(
+    adapter: SurrogateAdapter, fluid: str, T_list: Sequence[float], tol_rel: float = 0.1
+) -> ClapeyronResult:
+    """C3: Clapeyron slope along the VLE line.
+
+    For each T in T_list, compute:
+      lhs (baseline): dP_sat/dT via CoolProp (finite difference),
+      rhs (surrogate): Δh / (T · Δv), where Δv = 1/ρ_vap - 1/ρ_liq,
+    using the adapter's `phase_split_at_T`. If the adapter cannot provide
+    both ρ and h for both phases, mark supported=False (excluded from score).
+    """
+    caps = adapter.capabilities()
+    supports = bool(caps.supports_phase_split and caps.supports_h and caps.supports_rho)
+    lhs_vals, rhs_vals, rel_err = [], [], []
+
+    for T in T_list:
+        # Baseline slope from CoolProp
+        lhs = FiniteDiff.dP_sat_dT_coolprop(fluid, float(T), dT=1e-2)
+        lhs_vals.append(float(lhs))
+
+        rhs = float("nan")
+        if supports:
+            try:
+                p_sat, liq, vap = adapter.phase_split_at_T(float(T))
+                rho_l, rho_v = float(liq["rho"]), float(vap["rho"])
+                h_l, h_v = float(liq["h"]), float(vap["h"])
+                dv = 1.0 / rho_v - 1.0 / rho_l
+                dh = h_v - h_l
+                rhs = dh / (float(T) * dv)
+            except Exception:
+                supports = False  # degrade gracefully
+        rhs_vals.append(float(rhs))
+
+        # Avoid division by zero; still report a number
+        if np.isfinite(rhs) and abs(lhs) > 0:
+            rel = abs(lhs - rhs) / abs(lhs)
+        else:
+            rel = float("inf")
+        rel_err.append(float(rel))
+
+    med_err = np.median([x for x in rel_err if np.isfinite(x)]) if supports else float("inf")
+    passed = bool(med_err < tol_rel) if supports else False
+    return ClapeyronResult(
+        name="C3_clapeyron",
+        fluid=fluid,
+        T_list=list(map(float, T_list)),
+        rel_errors=list(map(float, rel_err)),
+        tol_rel=tol_rel,
+        supported=supports,
+        passed=passed,
+        rhs_values=list(map(float, rhs_vals)),
+        lhs_values=list(map(float, lhs_vals)),
+    )

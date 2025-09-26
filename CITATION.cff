@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use ThermoBench-Consist in your work, please cite it as below."
+title: "ThermoBench-Consist: Diagnostics for Thermodynamic Consistency of ML EOS/VLE Surrogates"
+authors:
+  - family-names: "Gupta"
+    given-names: "Aryan"
+version: "0.1.0"
+date-released: "2025-09-26"
+license: "MIT"
+doi: ""
+repository-code: "https://github.com/yourname/thermobench-consist"
+keywords:
+  - thermodynamics
+  - machine learning
+  - equation of state
+  - benchmarks
+  - CoolProp
