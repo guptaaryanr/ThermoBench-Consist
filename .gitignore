@@ -21,9 +21,8 @@ out/
 reports/
 *.png
 *.html
-*.md
 *.json
-notes.txt
+*.txt
 
 # IDE
 .vscode/
