@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
 
 from CoolProp.CoolProp import PropsSI
-from ..api import Capabilities, SurrogateAdapter
+
+from ..api import Capabilities
 
 
 @dataclass
@@ -26,7 +26,7 @@ class CoolPropAdapter:
         """Specific enthalpy h [J/kg]."""
         return float(PropsSI("H", "T", float(T), "P", float(p), self.fluid))
 
-    def phase_split_at_T(self, T: float) -> Tuple[float, Dict[str, float], Dict[str, float]]:
+    def phase_split_at_T(self, T: float) -> tuple[float, dict[str, float], dict[str, float]]:
         """Return saturation at T: p_sat and (ρ,h) for liquid and vapor."""
         T = float(T)
         p_sat = float(PropsSI("P", "T", T, "Q", 0, self.fluid))

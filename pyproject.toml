@@ -50,3 +50,14 @@ filterwarnings = [
   "ignore:.*distutils.*:DeprecationWarning",
   "ignore:.*np.bool8.*:DeprecationWarning",
 ]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["thermobench*"]
+exclude = ["tests*", "templates*", "notebooks*"]
+
+[tool.setuptools.package-data]
+thermobench = ["datasets/*.csv"]

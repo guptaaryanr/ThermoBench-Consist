@@ -1,15 +1,16 @@
 import json
 from pathlib import Path
+
 import numpy as np
 
 from thermobench.adapters.adapter_coolprop import CoolPropAdapter
 from thermobench.checks import (
-    check_monotonic_rho_isotherm,
-    check_compressibility,
     check_clapeyron,
+    check_compressibility,
+    check_monotonic_rho_isotherm,
 )
-from thermobench.score import aggregate_checks_to_summary
 from thermobench.report import generate_report
+from thermobench.score import aggregate_checks_to_summary
 
 
 def test_json_and_markdown_created(tmp_path: Path):

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, Optional, Tuple, Dict, Any
-import numpy as np
+from typing import Any, Protocol
+
 import pint
 
 ureg = pint.UnitRegistry()
@@ -58,11 +58,11 @@ class SurrogateAdapter(Protocol):
 
     fluid: str
 
-    def rho(self, T: float, p: float, x: Optional[Any] = None) -> float: ...
+    def rho(self, T: float, p: float, x: Any | None = None) -> float: ...
 
-    def h(self, T: float, p: float, x: Optional[Any] = None) -> float: ...
+    def h(self, T: float, p: float, x: Any | None = None) -> float: ...
 
-    def phase_split_at_T(self, T: float) -> Tuple[float, Dict[str, float], Dict[str, float]]: ...
+    def phase_split_at_T(self, T: float) -> tuple[float, dict[str, float], dict[str, float]]: ...
 
     def capabilities(self) -> Capabilities: ...
 

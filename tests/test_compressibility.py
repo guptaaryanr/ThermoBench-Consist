@@ -1,4 +1,5 @@
 import numpy as np
+
 from thermobench.adapters.adapter_coolprop import CoolPropAdapter
 from thermobench.adapters.adapter_toy_inconsistent import ToyInconsistentAdapter
 from thermobench.checks import check_compressibility

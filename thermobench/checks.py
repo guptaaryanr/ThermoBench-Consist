@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence, Dict, Any
-import numpy as np
 
-from .api import SurrogateAdapter, FiniteDiff
+import numpy as np
+from CoolProp.CoolProp import PropsSI
+
+from .api import FiniteDiff, SurrogateAdapter
 
 
 @dataclass
@@ -72,7 +74,7 @@ def check_monotonic_rho_isotherm(
     p_vals = np.asarray(p_vals, dtype=float)
     # derivatives at midpoints between p[k] and p[k+1]
     dr = []
-    for p1, p2 in zip(p_vals[:-1], p_vals[1:]):
+    for p1, p2 in zip(p_vals[:-1], p_vals[1:], strict=False):
         pmid = 0.5 * (p1 + p2)
         dp = p2 - p1
         d = FiniteDiff.drho_dp_at_T(adapter, T, pmid, dp=dp)
@@ -116,7 +118,7 @@ def check_compressibility(
 
     p_vals = np.asarray(p_vals, dtype=float)
     kappas = []
-    for p1, p2 in zip(p_vals[:-1], p_vals[1:]):
+    for p1, p2 in zip(p_vals[:-1], p_vals[1:], strict=False):
         pmid = 0.5 * (p1 + p2)
         dp = p2 - p1
         drdp = FiniteDiff.drho_dp_at_T(adapter, T, pmid, dp=dp)
@@ -151,6 +153,27 @@ def check_clapeyron(
     caps = adapter.capabilities()
     supports = bool(caps.supports_phase_split and caps.supports_h and caps.supports_rho)
     lhs_vals, rhs_vals, rel_err = [], [], []
+
+    # Guard: filter Ts to valid saturation range for the fluid
+    try:
+        T_triple = float(PropsSI("Ttriple", fluid))
+        T_crit = float(PropsSI("Tcrit", fluid))
+    except Exception:
+        T_triple, T_crit = -float("inf"), float("inf")
+    T_list = [float(T) for T in T_list if (T_triple < float(T) < T_crit)]
+    if not T_list:
+        # No valid temperatures -> mark unsupported (excluded from score)
+        return ClapeyronResult(
+            name="C3_clapeyron",
+            fluid=fluid,
+            T_list=[],
+            rel_errors=[],
+            tol_rel=tol_rel,
+            supported=False,
+            passed=False,
+            rhs_values=[],
+            lhs_values=[],
+        )
 
     for T in T_list:
         # Baseline slope from CoolProp

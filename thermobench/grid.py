@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
 import numpy as np
 import pandas as pd
 from CoolProp.CoolProp import PhaseSI
@@ -18,7 +17,7 @@ def _parse_range(expr: str) -> np.ndarray:
     return vals
 
 
-def parse_grid_string(grid: str) -> Tuple[np.ndarray, np.ndarray]:
+def parse_grid_string(grid: str) -> tuple[np.ndarray, np.ndarray]:
     """Parse grid string like 'T=220:300:10,p=1e5:5e6:5e5'.
 
     Returns

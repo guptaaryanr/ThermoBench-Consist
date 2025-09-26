@@ -1,24 +1,21 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Any, Optional
-import json
-import math
+from typing import Any
 
+import matplotlib
+
+matplotlib.use("Agg")  # non-GUI backend
 import matplotlib.pyplot as plt
 import numpy as np
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from .grid import parse_grid_string
-from .api import SurrogateAdapter
-from importlib import import_module
-
 
 def _template_env() -> Environment:
     # Prefer repo-root ./templates/, else fall back to package-relative ../../templates/
-    local = Path.cwd() / "templates"
+    local = Path.cwd() / "thermobench-consist/templates"
     if not local.exists():
-        local = Path(__file__).resolve().parents[2] / "templates"
+        local = Path(__file__).resolve().parents[2] / "thermobench-consist/templates"
     return Environment(
         loader=FileSystemLoader(str(local)),
         autoescape=select_autoescape(["html", "xml"]),
@@ -27,16 +24,16 @@ def _template_env() -> Environment:
     )
 
 
-def _plot_isotherm_density(summary: Dict[str, Any], out_dir: Path) -> str:
+def _plot_isotherm_density(summary: dict[str, Any], out_dir: Path) -> str:
     """Make a tiny ρ vs p plot for the isotherm used in C1/C2."""
     c1 = summary["checks"]["C1_monotonic"]["details"]["per_T"][0]
     T = c1["T"]
     # Reconstruct isotherm by numerical integration of derivatives is overkill; instead,
     # recompute densities from the adapter if present in this process. We don't have it here,
     # so approximate by cumulative sum of derivatives starting from rho0=1.0 for visualization.
-    dr = summary["checks"]["C1_monotonic"]["details"]["per_T"][0]
-    p = np.array(summary["checks"]["C1_monotonic"]["details"]["per_T"][0].get("p", []))
-    dr_list = summary["checks"]["C1_monotonic"]["details"]["per_T"][0]
+    # dr = summary["checks"]["C1_monotonic"]["details"]["per_T"][0]
+    # p = np.array(summary["checks"]["C1_monotonic"]["details"]["per_T"][0].get("p", []))
+    # dr_list = summary["checks"]["C1_monotonic"]["details"]["per_T"][0]
     # In JSON, we didn't store raw p/dr arrays; to keep this lightweight, synthesize a simple trend.
     # Just plot a monotone curve with annotation.
     fig = plt.figure(figsize=(4, 3), dpi=150)
@@ -53,7 +50,7 @@ def _plot_isotherm_density(summary: Dict[str, Any], out_dir: Path) -> str:
     return str(path)
 
 
-def _plot_clapeyron(summary: Dict[str, Any], out_dir: Path) -> Optional[str]:
+def _plot_clapeyron(summary: dict[str, Any], out_dir: Path) -> str | None:
     c3 = summary["checks"]["C3_clapeyron"]
     if not c3["supported"]:
         return None
@@ -78,9 +75,9 @@ def _plot_clapeyron(summary: Dict[str, Any], out_dir: Path) -> Optional[str]:
 
 
 def generate_report(
-    summary: Dict[str, Any],
-    md_out: Optional[str] = None,
-    html_out: Optional[str] = None,
+    summary: dict[str, Any],
+    md_out: str | None = None,
+    html_out: str | None = None,
     out_dir: str = "out",
     overwrite_figs: bool = False,
 ) -> None:

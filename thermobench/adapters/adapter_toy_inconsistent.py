@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
 
 from CoolProp.CoolProp import PropsSI  # for p_sat baseline only
-from ..api import Capabilities, SurrogateAdapter
+
+from ..api import Capabilities
 
 
 @dataclass
@@ -21,13 +21,31 @@ class ToyInconsistentAdapter:
         return Capabilities(supports_rho=True, supports_h=True, supports_phase_split=True)
 
     def rho(self, T: float, p: float, x=None) -> float:
-        """Toy density [kg/m³]; mostly linear in p with a local wiggle."""
+        """Toy density [kg/m³] with a deliberate negative dρ/dp region near ~2.0 MPa.
+
+        Form:
+            ρ(p) = a0 + a1*(p - p_ref) - B * ((p - p0)^2) / S + tiny T-mod
+        so that:
+            dρ/dp = a1 - 2B*(p - p0)/S
+        which becomes negative for p > p0 if B is large enough.
+        """
         T = float(T)
         p = float(p)
-        base = 0.8e-6 * p + 1.2  # linear trend (arbitrary units but positive)
-        wiggle = -0.2 * (p / 2e6 - 1.0) * (p / 2e6 - 1.2)  # creates a small non-monotone region
-        temp_mod = 1.0 + 0.001 * (T - 273.15) / 100.0
-        rho = abs(base + wiggle) * 100.0 * temp_mod  # scale to ~ realistic kg/m3
+
+        a0 = 200.0  # baseline density level [kg/m^3]
+        a1 = 8.0e-7  # small positive base slope [(kg/m^3)/Pa]
+        p_ref = 1.0e5  # reference pressure [Pa]
+
+        p0 = 2.0e6  # center of the "dent" [Pa]
+        B = 8.0  # strength of non-monotonic term [unitless]
+        S = 1.0e12  # scaling for the quadratic term to keep magnitudes reasonable
+
+        rho = a0 + a1 * (p - p_ref) - B * ((p - p0) ** 2) / S
+        rho += 0.001 * (T - 273.15)  # tiny T modulation (keeps values plausible)
+
+        # keep strictly positive (clip very small values, avoid abs() which wrecks slope signs)
+        if rho < 1.0:
+            rho = 1.0
         return float(rho)
 
     def h(self, T: float, p: float, x=None) -> float:
@@ -36,7 +54,7 @@ class ToyInconsistentAdapter:
         p = float(p)
         return 1.0e3 * T + 5.0e-4 * p  # mild p dependence
 
-    def phase_split_at_T(self, T: float) -> Tuple[float, Dict[str, float], Dict[str, float]]:
+    def phase_split_at_T(self, T: float) -> tuple[float, dict[str, float], dict[str, float]]:
         """Use CoolProp p_sat(T) but inject inconsistent Δh."""
         T = float(T)
         p_sat = float(PropsSI("P", "T", T, "Q", 0, self.fluid))

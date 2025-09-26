@@ -9,22 +9,24 @@ Exposes:
 
 from __future__ import annotations
 
-from importlib import import_module
-from dataclasses import asdict
-from pathlib import Path
 import argparse
 import json
 import sys
-from typing import Any, Tuple, Sequence
+from collections.abc import Sequence
+from importlib import import_module
+from pathlib import Path
 
-from .grid import parse_grid_string
 from .checks import (
-    check_monotonic_rho_isotherm,
-    check_compressibility,
     check_clapeyron,
+    check_compressibility,
+    check_monotonic_rho_isotherm,
 )
-from .score import aggregate_checks_to_summary
+from .grid import parse_grid_string
 from .report import generate_report
+from .score import aggregate_checks_to_summary
+
+# from dataclasses import asdict
+# from typing import Any, Tuple
 
 __all__ = [
     "cli_main",
@@ -139,13 +141,13 @@ def cli_main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.cmd == "score":
-        with open(args.json, "r") as f:
+        with open(args.json) as f:
             data = json.load(f)
         print(json.dumps(data, indent=2))
         return 0
 
     if args.cmd == "plot":
-        with open(args.json, "r") as f:
+        with open(args.json) as f:
             data = json.load(f)
         generate_report(data, md_out=None, html_out=None, out_dir=args.outdir, overwrite_figs=True)
         print(f"Regenerated figures in {args.outdir}")

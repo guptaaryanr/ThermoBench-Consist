@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Any
-from datetime import datetime
 import platform
-import json
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
+
 import numpy as np
 
-from .checks import MonotonicResult, CompressibilityResult, ClapeyronResult
+from .checks import ClapeyronResult, CompressibilityResult, MonotonicResult
 
 
 @dataclass
@@ -16,10 +16,10 @@ class CheckSummary:
     supported: bool
     passed: bool
     pass_ratio: float  # for collections (single result -> 1.0 if passed)
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
-def _summarize_monotonic(results: List[MonotonicResult]) -> CheckSummary:
+def _summarize_monotonic(results: list[MonotonicResult]) -> CheckSummary:
     supported = any(r.supported for r in results)
     passes = [r.passed for r in results if r.supported]
     ratio = float(np.mean(passes)) if passes else 0.0
@@ -37,7 +37,7 @@ def _summarize_monotonic(results: List[MonotonicResult]) -> CheckSummary:
     return CheckSummary("C1_monotonic", supported, all(passes) if passes else False, ratio, detail)
 
 
-def _summarize_compress(results: List[CompressibilityResult]) -> CheckSummary:
+def _summarize_compress(results: list[CompressibilityResult]) -> CheckSummary:
     supported = any(r.supported for r in results)
     passes = [r.passed for r in results if r.supported]
     ratio = float(np.mean(passes)) if passes else 0.0
@@ -52,7 +52,7 @@ def _summarize_compress(results: List[CompressibilityResult]) -> CheckSummary:
     )
 
 
-def _summarize_clapeyron(results: List[ClapeyronResult]) -> CheckSummary:
+def _summarize_clapeyron(results: list[ClapeyronResult]) -> CheckSummary:
     supported = any(r.supported for r in results)
     passes = [r.passed for r in results if r.supported]
     ratio = float(np.mean(passes)) if passes else 0.0
@@ -80,12 +80,12 @@ def aggregate_checks_to_summary(
     adapter_name: str,
     fluid: str,
     grid: str,
-    results_monotonic: List[MonotonicResult],
-    results_compress: List[CompressibilityResult],
-    results_clapeyron: List[ClapeyronResult],
+    results_monotonic: list[MonotonicResult],
+    results_compress: list[CompressibilityResult],
+    results_clapeyron: list[ClapeyronResult],
     tol_monotonic: float,
     tol_clap: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Aggregate per-check results and compute composite score in [0, 100]."""
     c1 = _summarize_monotonic(results_monotonic)
     c2 = _summarize_compress(results_compress)
@@ -96,7 +96,9 @@ def aggregate_checks_to_summary(
 
     summary = {
         "schema_version": "1.0",
-        "datetime_utc": datetime.utcnow().isoformat() + "Z",
+        "datetime_utc": datetime.now(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),  # timezone-aware ISO8601 in UTC with 'Z' suffix
         "system": {"python": platform.python_version(), "platform": platform.platform()},
         "adapter": adapter_name,
         "fluid": fluid,
