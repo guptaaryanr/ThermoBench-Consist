@@ -13,9 +13,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 def _template_env() -> Environment:
     # Prefer repo-root ./templates/, else fall back to package-relative ../../templates/
-    local = Path.cwd() / "thermobench-consist/templates"
+    local = Path.cwd() / "templates"
     if not local.exists():
-        local = Path(__file__).resolve().parents[2] / "thermobench-consist/templates"
+        local = Path(__file__).resolve().parents[2] / "templates"
     return Environment(
         loader=FileSystemLoader(str(local)),
         autoescape=select_autoescape(["html", "xml"]),
