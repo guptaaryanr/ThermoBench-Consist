@@ -9,9 +9,9 @@
 ## Features
 - Adapter protocol to wrap any surrogate (density and optional enthalpy & VLE split).
 - Checks:
-  - **C1 Monotonic density:** ∂ρ/∂p\|_T > 0 on isotherms.
-  - **C2 Stability proxy (compressibility):** κ_T = (1/ρ)(∂ρ/∂p)\|_T > 0.
-  - **C3 Clapeyron slope along VLE:** dP_sat/dT ≈ Δh/(T·Δv) vs CoolProp baseline.
+  - **C1 Monotonic density:** $\frac{\partial\rho}{\partial p}|_T > 0$ on isotherms.
+  - **C2 Stability proxy (compressibility):** $\kappa_T = \frac{1}{\rho}\frac{\partial\rho}{\partial p}|_T > 0$.
+  - **C3 Clapeyron slope along VLE:** $\frac{dP_{sat}}{dT} \approx \frac{\Delta h}{T \cdot \Delta v}$ vs CoolProp baseline.
 - Graceful degradation: unsupported checks are skipped in the composite score.
 - Reports: Markdown + HTML with small plots, plus a machine-readable JSON summary.
 - CPU-only, tiny datasets (CO₂, N₂ grids).
