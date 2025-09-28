@@ -35,6 +35,12 @@ Isothermal compressibility is $\kappa_T = \frac{1}{\rho}\frac{\partial\rho}{\par
 ### C3 Clapeyron slope along VLE
 The Clapeyron equation relates the slope of the saturation curve to phase property differences: $\frac{dP_{sat}}{dT} \approx \frac{\Delta h}{T \cdot \Delta v}$, $\Delta h = h_{vap} - h_{liq}$, $\Delta v = v_{vap} - v_{liq} = \frac{1}{\rho_{vap}} - \frac{1}{\rho_{liq}}$. We (i) evaluate a **CoolProp** baseline by numerically differentiating $P_{sat}(T)$, and (ii) compute the right-hand side from the surrogate’s VLE branches if available. We report per-T relative errors and a pass if the median error is below a tolerance. If the surrogate does not provide the needed branches and enthalpy, the check is marked **unsupported** and excluded from the composite score.
 
+### C4 Speed of sound (CFD-relevant)
+We sanity-check the **speed of sound** (or isentropic compressiblity) via $a^2 = \frac{\partial p}{\partial \rho}|_s$, using CoolProp's $a$ as the reference and comparing a surrogate's $a^2$ if provided. We report per-T relative errors and pass if the median error is below a tolerance (default 0.2). This is critical for CFL stability and acoustics in CFD.
+
+## Guardrails
+We expose `near_spinodal` flags when finite-difference derivatives or CoolProp $a^2$ are very small but positive, and provide an optional `--critical_guard` that shrinks isotherms away from a $\pm\Delta T$ band around the critical temperature to avoid ambiguous states. These are **flags** (not auto-fails) intended to stabilize interpretation of borderline cases.
+
 ## 3.3 Grids and datasets
 We ship small single-phase grids for CO₂ (220–300 K) and N₂ (80–120 K) and utilities to sample new points while skipping two-phase regions via **CoolProp** phase detection.
 

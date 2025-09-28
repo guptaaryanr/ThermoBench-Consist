@@ -5,48 +5,51 @@
   <title>ThermoBench-Consist Report</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; color: #fff; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; color: #fff; font-size: 12px; }
     .pass { background: #2e7d32; }
+    .warn { background: #ef6c00; }
     .fail { background: #c62828; }
     .section { margin-top: 18px; }
     code { background: #f5f5f5; padding: 2px 4px; border-radius: 4px; }
+    .kv { margin-top: 4px; }
   </style>
 </head>
 <body>
-  <h1>ThermoBench-Consist Report</h1>
+  <h1>ThermoBench-Consist Report (v1.0)</h1>
   <p><b>Adapter:</b> {{ adapter }} &nbsp; <b>Fluid:</b> {{ fluid }} &nbsp; <b>Grid:</b> {{ grid }} &nbsp; <b>UTC:</b> {{ datetime_utc }}</p>
 
   <h2>Composite Score: {{ "%.1f"|format(composite_score) }} / 100</h2>
+  <p>Badges: Core=<span class="badge pass">{{ "%.0f"|format(badges.Core) }}</span> Plus=<span class="badge {{ 'pass' if checks.C4_speed_of_sound.supported else 'warn' }}">{{ "%.0f"|format(badges.Plus) }}</span></p>
 
   <div class="section">
-    <h3>C1 — Monotonic density (∂ρ/∂p|<sub>T</sub> > 0)</h3>
-    <p>Supported: <span class="badge {{ 'pass' if checks.C1_monotonic.supported else 'fail' }}">{{ checks.C1_monotonic.supported }}</span>
-       Passed: <span class="badge {{ 'pass' if checks.C1_monotonic.passed else 'fail' }}">{{ checks.C1_monotonic.passed }}</span>
-       (ratio={{ "%.2f"|format(checks.C1_monotonic.pass_ratio) }})</p>
+    <h3>C1 — Monotonic density (∂ρ/∂p|<sub>T</sub> > 0)
+      <span class="badge {{ checks.C1_monotonic.severity }}">{{ checks.C1_monotonic.severity }}</span>
+    </h3>
+    <p>Supported: <b>{{ checks.C1_monotonic.supported }}</b> &nbsp; Passed: <b>{{ checks.C1_monotonic.passed }}</b> (ratio={{ "%.2f"|format(checks.C1_monotonic.pass_ratio) }})</p>
     <ul>
       {% for r in checks.C1_monotonic.details.per_T %}
-      <li>T={{ "%.1f"|format(r.T) }} K — fraction positive={{ "%.2f"|format(r.fraction_positive) }}, min derivative={{ "%.3e"|format(r.min_derivative) }}, passed={{ r.passed }}</li>
+      <li>T={{ "%.1f"|format(r.T) }} K — fraction positive={{ "%.2f"|format(r.fraction_positive) }}, min derivative={{ "%.3e"|format(r.min_derivative) }}, near_spinodal={{ r.near_spinodal }}, passed={{ r.passed }}</li>
       {% endfor %}
     </ul>
   </div>
 
   <div class="section">
-    <h3>C2 — Compressibility sign (κ<sub>T</sub> > 0)</h3>
-    <p>Supported: <span class="badge {{ 'pass' if checks.C2_compressibility.supported else 'fail' }}">{{ checks.C2_compressibility.supported }}</span>
-       Passed: <span class="badge {{ 'pass' if checks.C2_compressibility.passed else 'fail' }}">{{ checks.C2_compressibility.passed }}</span>
-       (ratio={{ "%.2f"|format(checks.C2_compressibility.pass_ratio) }})</p>
+    <h3>C2 — Compressibility sign (κ<sub>T</sub> > 0)
+      <span class="badge {{ checks.C2_compressibility.severity }}">{{ checks.C2_compressibility.severity }}</span>
+    </h3>
+    <p>Supported: <b>{{ checks.C2_compressibility.supported }}</b> &nbsp; Passed: <b>{{ checks.C2_compressibility.passed }}</b> (ratio={{ "%.2f"|format(checks.C2_compressibility.pass_ratio) }})</p>
     <ul>
       {% for r in checks.C2_compressibility.details.per_T %}
-      <li>T={{ "%.1f"|format(r.T) }} K — min κ<sub>T</sub>={{ "%.3e"|format(r.min_kappa if r.min_kappa is not none else float("nan")) }}, passed={{ r.passed }}</li>
+      <li>T={{ "%.1f"|format(r.T) }} K — min κ<sub>T</sub>={{ "%.3e"|format(r.min_kappa if r.min_kappa is not none else float("nan")) }}, near_spinodal={{ r.near_spinodal }}, passed={{ r.passed }}</li>
       {% endfor %}
     </ul>
   </div>
 
   <div class="section">
-    <h3>C3 — Clapeyron slope along VLE</h3>
-    <p>Supported: <span class="badge {{ 'pass' if checks.C3_clapeyron.supported else 'fail' }}">{{ checks.C3_clapeyron.supported }}</span>
-       Passed: <span class="badge {{ 'pass' if checks.C3_clapeyron.passed else 'fail' }}">{{ checks.C3_clapeyron.passed }}</span>
-       (ratio={{ "%.2f"|format(checks.C3_clapeyron.pass_ratio) }})</p>
+    <h3>C3 — Clapeyron slope along VLE
+      <span class="badge {{ checks.C3_clapeyron.severity }}">{{ checks.C3_clapeyron.severity }}</span>
+    </h3>
+    <p>Supported: <b>{{ checks.C3_clapeyron.supported }}</b> &nbsp; Passed: <b>{{ checks.C3_clapeyron.passed }}</b> (ratio={{ "%.2f"|format(checks.C3_clapeyron.pass_ratio) }})</p>
     <ul>
       {% for r in checks.C3_clapeyron.details.per_run %}
       <li>T list: {{ r.T_list }} — median rel. error={{ "%.3f"|format(r.median_rel_error) }}, passed={{ r.passed }}</li>
@@ -55,11 +58,17 @@
   </div>
 
   <div class="section">
+    <h3>C4 — Speed of sound sanity
+      <span class="badge {{ checks.C4_speed_of_sound.severity }}">{{ checks.C4_speed_of_sound.severity }}</span>
+    </h3>
+    <p>Supported: <b>{{ checks.C4_speed_of_sound.supported }}</b> &nbsp; Passed: <b>{{ checks.C4_speed_of_sound.passed }}</b> (ratio={{ "%.2f"|format(checks.C4_speed_of_sound.pass_ratio) }})</p>
+  </div>
+
+  <div class="section">
     <h3>Figures</h3>
     <p><img src="{{ fig_isotherm }}" width="420"/></p>
-    {% if fig_clapeyron %}
-    <p><img src="{{ fig_clapeyron }}" width="420"/></p>
-    {% endif %}
+    {% if fig_clapeyron %}<p><img src="{{ fig_clapeyron }}" width="420"/></p>{% endif %}
+    {% if fig_a2 %}<p><img src="{{ fig_a2 }}" width="420"/></p>{% endif %}
   </div>
 </body>
 </html>

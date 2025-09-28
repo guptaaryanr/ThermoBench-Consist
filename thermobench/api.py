@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -26,6 +27,7 @@ class Capabilities:
     supports_rho: bool = True
     supports_h: bool = False
     supports_phase_split: bool = False
+    supports_speed_of_sound: bool = False
 
 
 class SurrogateAdapter(Protocol):
@@ -64,7 +66,13 @@ class SurrogateAdapter(Protocol):
 
     def phase_split_at_T(self, T: float) -> tuple[float, dict[str, float], dict[str, float]]: ...
 
+    def speed_of_sound(self, T: float, p: float, x: Any | None = None) -> float: ...
+
     def capabilities(self) -> Capabilities: ...
+
+
+def _lru(maxsize=512):
+    return functools.lru_cache(maxsize=maxsize)
 
 
 class FiniteDiff:
@@ -98,6 +106,7 @@ class FiniteDiff:
         return (rho2 - rho1) / dp
 
     @staticmethod
+    @_lru()
     def dP_sat_dT_coolprop(fluid: str, T: float, dT: float = 1e-2) -> float:
         """Finite difference of saturation pressure using CoolProp baseline.
 
@@ -119,3 +128,18 @@ class FiniteDiff:
         Pp = float(PropsSI("P", "T", T + 0.5 * dT, "Q", 0, fluid))
         Pm = float(PropsSI("P", "T", T - 0.5 * dT, "Q", 0, fluid))
         return (Pp - Pm) / dT
+
+    @staticmethod
+    @_lru()
+    def critical_temperature(fluid: str) -> float:
+        from CoolProp.CoolProp import PropsSI
+
+        return float(PropsSI("Tcrit", fluid))
+
+    @staticmethod
+    @_lru()
+    def a_coolprop(fluid: str, T: float, p: float) -> float:
+        """Speed of sound [m/s] from CoolProp with small cache."""
+        from CoolProp.CoolProp import PropsSI
+
+        return float(PropsSI("A", "T", float(T), "P", float(p), fluid))

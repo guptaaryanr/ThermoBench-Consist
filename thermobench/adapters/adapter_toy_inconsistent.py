@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
+from typing import Dict, Tuple
+import numpy as np
 from CoolProp.CoolProp import PropsSI  # for p_sat baseline only
 
 from ..api import Capabilities
@@ -18,50 +19,59 @@ class ToyInconsistentAdapter:
     fluid: str
 
     def capabilities(self) -> Capabilities:
-        return Capabilities(supports_rho=True, supports_h=True, supports_phase_split=True)
+        return Capabilities(
+            supports_rho=True,
+            supports_h=True,
+            supports_phase_split=True,
+            supports_speed_of_sound=True,
+        )
 
     def rho(self, T: float, p: float, x=None) -> float:
-        """Toy density [kg/m³] with a deliberate negative dρ/dp region near ~2.0 MPa.
+        """Toy density [kg/m³] with a controlled non-monotone region around 2 MPa.
 
-        Form:
-            ρ(p) = a0 + a1*(p - p_ref) - B * ((p - p0)^2) / S + tiny T-mod
-        so that:
-            dρ/dp = a1 - 2B*(p - p0)/S
-        which becomes negative for p > p0 if B is large enough.
+        Strategy: a mild positive base slope plus a *sufficiently strong* Gaussian dip
+        centered at 2.0 MPa. The left shoulder of the dip makes ∂ρ/∂p negative
+        over ~1.8–2.0 MPa, which the tests probe.
         """
+        import numpy as np
+
         T = float(T)
         p = float(p)
 
-        a0 = 200.0  # baseline density level [kg/m^3]
-        a1 = 8.0e-7  # small positive base slope [(kg/m^3)/Pa]
-        p_ref = 1.0e5  # reference pressure [Pa]
+        # Base trend ~ realistic magnitude and positive slope
+        # base' = d(base)/dp = 100 * 0.8e-6 = 8e-5 (kg/m^3)/Pa
+        temp_mod = 1.0 + 0.001 * (T - 273.15) / 100.0
+        base = 100.0 * (0.8e-6 * p + 1.2) * temp_mod  # ~ O(10^2) kg/m^3
 
-        p0 = 2.0e6  # center of the "dent" [Pa]
-        B = 8.0  # strength of non-monotonic term [unitless]
-        S = 1.0e12  # scaling for the quadratic term to keep magnitudes reasonable
+        # Gaussian dip parameters chosen so that |d(dip)/dp| > base' near the left shoulder:
+        # derivative magnitude ~ (A/σ)*exp(-0.5)
+        # choose A=30 kg/m^3, σ=1.5e5 Pa  -> (30/1.5e5)*0.607 ≈ 1.2e-4 > 8e-5
+        p0 = 2.0e6  # center of dip [Pa]
+        sigma = 1.5e5  # width [Pa]
+        A = 30.0  # amplitude [kg/m^3]
+        dip = A * np.exp(-((p - p0) ** 2) / (2.0 * sigma**2))
 
-        rho = a0 + a1 * (p - p_ref) - B * ((p - p0) ** 2) / S
-        rho += 0.001 * (T - 273.15)  # tiny T modulation (keeps values plausible)
-
-        # keep strictly positive (clip very small values, avoid abs() which wrecks slope signs)
-        if rho < 1.0:
-            rho = 1.0
-        return float(rho)
+        rho = base - dip
+        return float(max(rho, 1e-6))
 
     def h(self, T: float, p: float, x=None) -> float:
-        """Toy enthalpy [J/kg]; weakly varying to remain plausible."""
+        """Toy enthalpy [J/kg]; weak p-dependence."""
         T = float(T)
         p = float(p)
-        return 1.0e3 * T + 5.0e-4 * p  # mild p dependence
+        return 1.0e3 * T + 5.0e-4 * p
 
-    def phase_split_at_T(self, T: float) -> tuple[float, dict[str, float], dict[str, float]]:
+    def phase_split_at_T(self, T: float) -> Tuple[float, Dict[str, float], Dict[str, float]]:
         """Use CoolProp p_sat(T) but inject inconsistent Δh."""
         T = float(T)
         p_sat = float(PropsSI("P", "T", T, "Q", 0, self.fluid))
-        # Fabricate densities: take CoolProp densities (for plausibility)
         rho_l = float(PropsSI("D", "T", T, "Q", 0, self.fluid))
         rho_v = float(PropsSI("D", "T", T, "Q", 1, self.fluid))
-        # Make enthalpy jump spuriously small (violates Clapeyron)
-        h_l = float(1.0e3 * T)  # ~ T kJ/kg
-        h_v = h_l + 100.0  # only 100 J/kg of latent heat (nonsense small)
+        # spuriously tiny latent heat so Clapeyron fails badly
+        h_l = 1.0e3 * T
+        h_v = h_l + 100.0
         return p_sat, {"rho": rho_l, "h": h_l}, {"rho": rho_v, "h": h_v}
+
+    def speed_of_sound(self, T: float, p: float, x=None) -> float:
+        """Bias the speed of sound low to make C4 fail in a controlled way."""
+        a_ref = float(PropsSI("A", "T", float(T), "P", float(p), self.fluid))
+        return max(1.0, 0.6 * a_ref)  # ~40% low

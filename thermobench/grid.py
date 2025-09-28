@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from CoolProp.CoolProp import PhaseSI
 
+from .api import FiniteDiff
+
 
 def _parse_range(expr: str) -> np.ndarray:
     """Parse a range like '220:300:10' into an array [220,230,...,300]."""
@@ -31,6 +33,13 @@ def parse_grid_string(grid: str) -> tuple[np.ndarray, np.ndarray]:
     return T_vals, p_vals
 
 
+def apply_critical_guard(fluid: str, T_vals: np.ndarray, band_K: float = 2.0) -> np.ndarray:
+    """Optionally shrink T grid to avoid ±band_K around T_c (informational guard)."""
+    Tc = FiniteDiff.critical_temperature(fluid)
+    keep = [float(T) for T in T_vals if not (Tc - band_K <= T <= Tc + band_K)]
+    return np.array(keep, dtype=float) if keep else T_vals
+
+
 def sample_single_phase_points(
     fluid: str, T_vals: np.ndarray, p_vals: np.ndarray, max_points: int | None = None
 ) -> pd.DataFrame:
@@ -52,6 +61,25 @@ def sample_single_phase_points(
         if max_points and len(rows) >= max_points:
             break
     return pd.DataFrame(rows, columns=["fluid", "T_K", "p_Pa"])
+
+
+def random_grid(
+    fluid: str,
+    T_vals: np.ndarray,
+    p_vals: np.ndarray,
+    seed: int | None,
+    nT: int = 3,
+    nP: int = 25,
+    critical_guard: bool = False,
+    guard_band_K: float = 2.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Pick small random subsets of T and p (single-phase filter applied later by checks)."""
+    rng = np.random.default_rng(seed)
+    if critical_guard:
+        T_vals = apply_critical_guard(fluid, T_vals, band_K=guard_band_K)
+    Ts = np.sort(rng.choice(T_vals, size=min(nT, len(T_vals)), replace=False))
+    Ps = np.sort(rng.choice(p_vals, size=min(nP, len(p_vals)), replace=False))
+    return Ts, Ps
 
 
 def default_saturation_T(fluid: str) -> list[float]:

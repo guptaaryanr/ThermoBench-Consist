@@ -1,17 +1,17 @@
 """
-ThermoBench-Consist package.
+ThermoBench-Consist package (v1.0).
 
-Exposes:
-- Adapter protocol and finite difference helper (see thermobench.api)
-- Checks: C1/C2/C3 (see thermobench.checks)
-- CLI entrypoint `thermobench` (see `cli_main` below)
+CLI:
+  thermobench run --surrogate ... --fluid ... [--critical_guard] [--random_grid --seed 42]
+  thermobench score --json path
+  thermobench plot --json path --outdir out/
+  thermobench inspect --surrogate ... --fluid ...
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 from collections.abc import Sequence
 from importlib import import_module
 from pathlib import Path
@@ -20,32 +20,17 @@ from .checks import (
     check_clapeyron,
     check_compressibility,
     check_monotonic_rho_isotherm,
+    check_speed_of_sound,
 )
-from .grid import parse_grid_string
+from .grid import apply_critical_guard, parse_grid_string, random_grid
 from .report import generate_report
 from .score import aggregate_checks_to_summary
 
-# from dataclasses import asdict
-# from typing import Any, Tuple
-
-__all__ = [
-    "cli_main",
-    "parse_grid_string",
-    "check_monotonic_rho_isotherm",
-    "check_compressibility",
-    "check_clapeyron",
-    "aggregate_checks_to_summary",
-    "generate_report",
-]
-
-__version__ = "0.1.0"
+__all__ = ["cli_main"]
+__version__ = "1.0.0"
 
 
 def _load_adapter(class_path: str, fluid: str):
-    """
-    Load an adapter given 'module:Class'. If 'module' has no dot, it's resolved
-    relative to 'thermobench.adapters'.
-    """
     if ":" not in class_path:
         raise ValueError("Adapter must be given as 'module:Class'")
     mod_name, cls_name = class_path.split(":")
@@ -56,69 +41,102 @@ def _load_adapter(class_path: str, fluid: str):
     return cls(fluid=fluid)
 
 
-def _parse_sat_T(arg: str) -> Sequence[float]:
+def _parse_sat_T(arg: str):
     if not arg:
         return []
     return [float(x.strip()) for x in arg.split(",") if x.strip()]
 
 
 def cli_main(argv: Sequence[str] | None = None) -> int:
-    """
-    CLI entrypoint implementing:
-      thermobench run --surrogate ... --fluid --out --html --json
-      thermobench score --json path
-      thermobench plot --json path --outdir out/
-    """
     parser = argparse.ArgumentParser(prog="thermobench", description="ThermoBench-Consist CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_run = sub.add_parser("run", help="Run checks and generate report")
+    p_run.add_argument("--surrogate", required=True)
+    p_run.add_argument("--fluid", required=True, choices=["CO2", "N2"])
+    p_run.add_argument("--grid", default="T=220:300:10,p=1e5:5e6:5e5")
+    p_run.add_argument("--sat_T", default="")
+    p_run.add_argument("--tol_monotonic", type=float, default=1e-6)
+    p_run.add_argument("--tol_clap", type=float, default=0.1)
+    p_run.add_argument("--tol_c4", type=float, default=0.2)
+    p_run.add_argument("--out", required=True)
+    p_run.add_argument("--html", required=True)
+    p_run.add_argument("--json", required=True)
+    # ergonomics
+    p_run.add_argument("--critical_guard", action="store_true", help="avoid ±ΔT band around Tc")
+    p_run.add_argument("--seed", type=int, default=None, help="random seed for --random_grid")
     p_run.add_argument(
-        "--surrogate", required=True, help="module:Class (e.g., adapter_coolprop:CoolPropAdapter)"
+        "--random_grid", action="store_true", help="sample small random subset of grid"
     )
-    p_run.add_argument("--fluid", required=True, choices=["CO2", "N2"], help="Fluid")
-    p_run.add_argument(
-        "--grid",
-        default="T=220:300:10,p=1e5:5e6:5e5",
-        help='Grid string, e.g., "T=220:300:10,p=1e5:5e6:5e5"',
-    )
-    p_run.add_argument(
-        "--sat_T", default="", help="Comma-separated saturation temperatures, e.g., 230,240,260,280"
-    )
-    p_run.add_argument(
-        "--tol_monotonic", type=float, default=1e-6, help="Tolerance for C1/C2 derivative sign"
-    )
-    p_run.add_argument(
-        "--tol_clap", type=float, default=0.1, help="Relative tolerance for C3 median error"
-    )
-    p_run.add_argument("--out", required=True, help="Markdown report path")
-    p_run.add_argument("--html", required=True, help="HTML report path")
-    p_run.add_argument("--json", required=True, help="JSON summary path")
 
     p_score = sub.add_parser("score", help="Print JSON summary to stdout")
-    p_score.add_argument("--json", required=True, help="Path to JSON summary")
+    p_score.add_argument("--json", required=True)
 
-    p_plot = sub.add_parser("plot", help="Regenerate plots from an existing JSON summary")
-    p_plot.add_argument("--json", required=True, help="Path to JSON summary")
-    p_plot.add_argument("--outdir", default="out", help="Output directory for plots")
+    p_plot = sub.add_parser("plot", help="Regenerate figures from an existing JSON summary")
+    p_plot.add_argument("--json", required=True)
+    p_plot.add_argument("--outdir", default="out")
+
+    p_inspect = sub.add_parser("inspect", help="Print adapter capability table and reasons")
+    p_inspect.add_argument("--surrogate", required=True)
+    p_inspect.add_argument("--fluid", required=True, choices=["CO2", "N2"])
 
     args = parser.parse_args(argv)
+
+    if args.cmd == "inspect":
+        adapter = _load_adapter(args.surrogate, args.fluid)
+        caps = adapter.capabilities()
+        rows = [
+            ("C1_monotonic", "supported" if caps.supports_rho else "unsupported (rho)"),
+            ("C2_compressibility", "supported" if caps.supports_rho else "unsupported (rho)"),
+            (
+                "C3_clapeyron",
+                (
+                    "supported"
+                    if (caps.supports_phase_split and caps.supports_h and caps.supports_rho)
+                    else "unsupported (phase_split/h/rho)"
+                ),
+            ),
+            (
+                "C4_speed_of_sound",
+                (
+                    "supported"
+                    if getattr(caps, "supports_speed_of_sound", False)
+                    else "unsupported (speed_of_sound)"
+                ),
+            ),
+        ]
+        print("Capability inspection for", adapter.__class__.__name__, "fluid", args.fluid)
+        print("{:<20}{}".format("Check", "Status"))
+        print("-" * 36)
+        for k, v in rows:
+            print(f"{k:<20}{v}")
+        return 0
 
     if args.cmd == "run":
         adapter = _load_adapter(args.surrogate, args.fluid)
         T_vals, p_vals = parse_grid_string(args.grid)
-        # choose a representative isotherm for C1/C2
+        if args.critical_guard:
+            T_vals = apply_critical_guard(args.fluid, T_vals)
+        if args.random_grid:
+            T_vals, p_vals = random_grid(args.fluid, T_vals, p_vals, seed=args.seed)
+
+        # representative isotherm for C1/C2
         T0 = float(T_vals[len(T_vals) // 2])
         p_line = p_vals
-        # C1 & C2
         r1 = check_monotonic_rho_isotherm(adapter, args.fluid, T0, p_line, tol=args.tol_monotonic)
         r2 = check_compressibility(adapter, args.fluid, T0, p_line, tol=args.tol_monotonic)
-        # C3 Clapeyron on requested saturation T list (if any)
+
+        # C3
         Ts = _parse_sat_T(args.sat_T)
         results_c3 = []
         if Ts:
             r3 = check_clapeyron(adapter, args.fluid, Ts, tol_rel=args.tol_clap)
             results_c3 = [r3]
+
+        # C4: use three temperatures across grid if not provided
+        T_list_c4 = [float(T_vals[0]), float(T_vals[len(T_vals) // 2]), float(T_vals[-1])]
+        r4 = check_speed_of_sound(adapter, args.fluid, T_list_c4, p_ref=1e5, tol_rel=args.tol_c4)
+
         summary = aggregate_checks_to_summary(
             adapter_name=adapter.__class__.__name__,
             fluid=args.fluid,
@@ -128,6 +146,7 @@ def cli_main(argv: Sequence[str] | None = None) -> int:
             results_clapeyron=results_c3,
             tol_monotonic=args.tol_monotonic,
             tol_clap=args.tol_clap,
+            results_c4=[r4],
         )
         Path(args.json).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
@@ -154,7 +173,3 @@ def cli_main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     return 1
-
-
-if __name__ == "__main__":
-    sys.exit(cli_main())

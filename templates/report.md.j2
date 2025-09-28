@@ -1,4 +1,4 @@
-# ThermoBench-Consist Report
+# ThermoBench-Consist Report (v1.0)
 
 **Adapter:** {{ adapter }}  
 **Fluid:** {{ fluid }}  
@@ -6,38 +6,32 @@
 **Date (UTC):** {{ datetime_utc }}
 
 ## Composite Score
-**{{ "%.1f"|format(composite_score) }} / 100**
+**{{ "%.1f"|format(composite_score) }} / 100** &nbsp;&nbsp; **Badges:** Core={{ "%.0f"|format(badges.Core) }} / Plus={{ "%.0f"|format(badges.Plus) }}
 
 ## Checks
 
-### C1 — Monotonic density (∂ρ/∂p|_T > 0)
-- Supported: {{ checks.C1_monotonic.supported }}
-- Passed: {{ checks.C1_monotonic.passed }} (ratio={{ "%.2f"|format(checks.C1_monotonic.pass_ratio) }})
-- Details:
+### C1 — Monotonic density (∂ρ/∂p|_T > 0) — severity: {{ checks.C1_monotonic.severity }}
+- Supported: {{ checks.C1_monotonic.supported }} | Passed: {{ checks.C1_monotonic.passed }} (ratio={{ "%.2f"|format(checks.C1_monotonic.pass_ratio) }})
 {% for r in checks.C1_monotonic.details.per_T %}
-  - T={{ "%.1f"|format(r.T) }} K — fraction positive={{ "%.2f"|format(r.fraction_positive) }}, min derivative={{ "%.3e"|format(r.min_derivative) }}, passed={{ r.passed }}
+  - T={{ "%.1f"|format(r.T) }} K — fraction positive={{ "%.2f"|format(r.fraction_positive) }}, min derivative={{ "%.3e"|format(r.min_derivative) }}, near_spinodal={{ r.near_spinodal }}, passed={{ r.passed }}
 {% endfor %}
 
-### C2 — Compressibility sign (κ_T > 0)
-- Supported: {{ checks.C2_compressibility.supported }}
-- Passed: {{ checks.C2_compressibility.passed }} (ratio={{ "%.2f"|format(checks.C2_compressibility.pass_ratio) }})
-- Details:
+### C2 — Compressibility sign (κ_T > 0) — severity: {{ checks.C2_compressibility.severity }}
+- Supported: {{ checks.C2_compressibility.supported }} | Passed: {{ checks.C2_compressibility.passed }} (ratio={{ "%.2f"|format(checks.C2_compressibility.pass_ratio) }})
 {% for r in checks.C2_compressibility.details.per_T %}
-  - T={{ "%.1f"|format(r.T) }} K — min κ_T={{ "%.3e"|format(r.min_kappa if r.min_kappa is not none else float("nan")) }}, passed={{ r.passed }}
+  - T={{ "%.1f"|format(r.T) }} K — min κ_T={{ "%.3e"|format(r.min_kappa if r.min_kappa is not none else float("nan")) }}, near_spinodal={{ r.near_spinodal }}, passed={{ r.passed }}
 {% endfor %}
 
-### C3 — Clapeyron slope along VLE
-- Supported: {{ checks.C3_clapeyron.supported }}
-- Passed: {{ checks.C3_clapeyron.passed }} (ratio={{ "%.2f"|format(checks.C3_clapeyron.pass_ratio) }})
-- Details:
+### C3 — Clapeyron slope along VLE — severity: {{ checks.C3_clapeyron.severity }}
+- Supported: {{ checks.C3_clapeyron.supported }} | Passed: {{ checks.C3_clapeyron.passed }} (ratio={{ "%.2f"|format(checks.C3_clapeyron.pass_ratio) }})
 {% for r in checks.C3_clapeyron.details.per_run %}
   - T list: {{ r.T_list }} — median rel. error={{ "%.3f"|format(r.median_rel_error) }}, passed={{ r.passed }}
 {% endfor %}
 
+### C4 — Speed of sound sanity — severity: {{ checks.C4_speed_of_sound.severity }}
+- Supported: {{ checks.C4_speed_of_sound.supported }} | Passed: {{ checks.C4_speed_of_sound.passed }} (ratio={{ "%.2f"|format(checks.C4_speed_of_sound.pass_ratio) }})
+
 ## Figures
-
 ![Isotherm ρ vs p]({{ fig_isotherm }})
-
-{% if fig_clapeyron %}
-![Clapeyron errors]({{ fig_clapeyron }})
-{% endif %}
+{% if fig_clapeyron %}![Clapeyron LHS vs RHS]({{ fig_clapeyron }}){% endif %}
+{% if fig_a2 %}![Speed of sound vs T]({{ fig_a2 }}){% endif %}
