@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
+
 import numpy as np
 from CoolProp.CoolProp import PropsSI  # for p_sat baseline only
 
@@ -33,7 +33,6 @@ class ToyInconsistentAdapter:
         centered at 2.0 MPa. The left shoulder of the dip makes ∂ρ/∂p negative
         over ~1.8–2.0 MPa, which the tests probe.
         """
-        import numpy as np
 
         T = float(T)
         p = float(p)
@@ -60,7 +59,7 @@ class ToyInconsistentAdapter:
         p = float(p)
         return 1.0e3 * T + 5.0e-4 * p
 
-    def phase_split_at_T(self, T: float) -> Tuple[float, Dict[str, float], Dict[str, float]]:
+    def phase_split_at_T(self, T: float) -> tuple[float, dict[str, float], dict[str, float]]:
         """Use CoolProp p_sat(T) but inject inconsistent Δh."""
         T = float(T)
         p_sat = float(PropsSI("P", "T", T, "Q", 0, self.fluid))
