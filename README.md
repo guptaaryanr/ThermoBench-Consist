@@ -1,5 +1,5 @@
 # ThermoBench-Consist
-[![CI](https://img.shields.io/github/actions/workflow/status/yourname/thermobench-consist/ci.yml?branch=main)](./.github/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/guptaaryanr/ThermoBench-Consist/ci.yml?branch=main)](./.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 **ThermoBench-Consist** is a tiny diagnostics/benchmark suite that checks **thermodynamic consistency** for ML-based EOS/VLE surrogates (pure fluids). It focuses on **signs and slopes** rather than absolute accuracy.
