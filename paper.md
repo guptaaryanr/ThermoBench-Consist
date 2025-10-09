@@ -28,19 +28,10 @@ A capability structure declares which checks are supported; unsupported checks a
 ## 3.2 Checks (Core and Plus)
 
 ### C1 — Monotonic density (Core)
-In a single phase, mechanical stability implies
-$$
-\left(\frac{\partial \rho}{\partial p}\right)_T > 0.
-$$
-We compute centered finite differences along an isotherm; the check passes if all slopes exceed $-\text{tol}$.
+In a single phase, mechanical stability implies $\left(\frac{\partial \rho}{\partial p}\right)_T > 0$. We compute centered finite differences along an isotherm; the check passes if all slopes exceed $-\text{tol}$.
 
 ### C2 — Isothermal compressibility (Core)
-The isothermal compressibility is
-$$
-\kappa_T \equiv \frac{1}{\rho}\left(\frac{\partial \rho}{\partial p}\right)_T,
-$$
-and stability requires $\kappa_T > 0$. We reuse the C1 derivative; slightly negative values within tolerance
-are treated as numerical noise.
+The isothermal compressibility is $\kappa_T \equiv \frac{1}{\rho}\left(\frac{\partial \rho}{\partial p}\right)_T$ and stability requires $\kappa_T > 0$. We reuse the C1 derivative; slightly negative values within tolerance are treated as numerical noise.
 
 ### C3 — Clapeyron along VLE (Core)
 The Clapeyron relation connects the slope of the saturation curve and phase property differences:
