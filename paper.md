@@ -45,7 +45,7 @@ Each check produces `passed` and also a qualitative **severity** (`info`, `warn`
 ## 3.3 Guardrails
 We implement two light guardrails (flags; **not** auto-fails):
 
-1. **Near-spinodal flag.** During C1/C2 we set `near_spinodal=true` if any computed derivative (or $\kappa_T$) lies in ($0$, $\varepsilon_{\text{guard}}$) with $\varepsilon_{\text{guard}}$ small (by default max(10,$\text{tol}$, $10^{-9}$)). This warns about fragile states where tiny perturbations might invert signs.
+1. **Near-spinodal flag.** During C1/C2 we set `near_spinodal=true` if any computed derivative (or $\kappa_T$) lies in ($0$, $\varepsilon_{\text{guard}}$) with $\varepsilon_{\text{guard}}$ small (by default max(10, $\text{tol}$, $10^{-9}$)). This warns about fragile states where tiny perturbations might invert signs.
 
 2. **Critical-band avoidance.** An optional CLI switch `--critical_guard` removes a $\pm \Delta T$ band around $T_c$ (queried from the reference) from the isotherm set to prevent ambiguous regions; this is purely an **informational** filter for sampling.
 
@@ -56,7 +56,7 @@ We ship tiny single-phase grids for **$CO_2$** (220–300 K) and **$N_2$** (80�
 Per-check pass/fail is aggregated; unsupported checks are excluded from the mean. We report a composite **0–100** score plus **badges**: **Core** (C1–C3) and **Plus** (C4) pass ratios. The report includes: (i) an isotherm $\rho–p$ plot with sign-aware shading, (ii) Clapeyron LHS vs RHS with a median-error title, and (iii) a speed-of-sound vs $T$ plot (reference and surrogate, if supported). A JSON summary encodes all metrics (including raw arrays) for CI.
 
 # 5. Results Snapshot
-The reference **CoolProp adapter** passes Core and Plus checks across small grids; the **toy inconsistent adapter** deliberately violates monotonicity near $\sim$2 MPa and injects an unrealistically small $\Delta h$ across VLE, causing clear failures in C1 and C3, and a sizable error in C4 (by construction). These behaviors are reflected consistently in JSON, Markdown, and HTML outputs.
+The reference **CoolProp adapter** passes Core and Plus checks across small grids; the **toy inconsistent adapter** deliberately violates monotonicity near $\sim$ 2 MPa and injects an unrealistically small $\Delta h$ across VLE, causing clear failures in C1 and C3, and a sizable error in C4 (by construction). These behaviors are reflected consistently in JSON, Markdown, and HTML outputs.
 
 # 6. Limitations
 - **Scope.** Pure fluids only in **v1.0** ($CO_2$, $N_2$ reference grids). Mixtures and composition derivatives are future work.
